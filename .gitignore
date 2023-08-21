@@ -1,0 +1,7 @@
+minesweeper
+raylib.h
+*.o
+
+.DS_Store
+
+.vscode/*
