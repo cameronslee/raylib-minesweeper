@@ -5,7 +5,7 @@
 #include <time.h>
 
 //----------------------------------------------------------------------------------
-// Some Defines
+// Defines
 //----------------------------------------------------------------------------------
 #define SQUARE_SIZE 32
 #define ROWS 16
@@ -13,15 +13,10 @@
 #define MAX_BOMBS 20
 
 //Cell states
-#define UNOPENED -1
-#define OPENED 0
+#define UNOPENED 0
+#define OPENED 1
 #define FLAG 69
-#define OPENED_BOMB 666
 #define BOMB 420
-
-//----------------------------------------------------------------------------------
-// Types and Structures Definition
-//----------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------
 // Global Variables Declaration
@@ -30,15 +25,19 @@
 static const int screenWidth = 512;
 static const int screenHeight = 512;
 
-int board[ROWS][COLS];
+int board[ROWS][COLS]; //game board
+int bombs[ROWS][COLS]; //bomb locations
+int counts[ROWS][COLS]; //num surrounding mines
 
 static int framesCounter = 0;
 static bool gameOver = false;
 static bool pause = false;
+static bool win = false;
 
 static Vector2 offset = { 0 };
 
 static int bombCount = 0;
+static int numOpened = 0;
 
 //------------------------------------------------------------------------------------
 // Module Functions Declaration (local)
@@ -48,6 +47,12 @@ static void UpdateGame(void);       // Update game (one frame)
 static void DrawGame(void);         // Draw game (one frame)
 static void UnloadGame(void);       // Unload game
 static void UpdateDrawFrame(void);  // Update and Draw (one frame)
+static bool IsWinner(); // Check win state
+static void dfs(int x, int y); // Helper to randomly init mines
+static int GetMouseClickX(); // Returns X index of game board
+static int GetMouseClickY(); // Returns Y index of game board
+static void Open(int x, int y); // Helper to mark cell as opened and trigger opening of surrounding
+static void Count(int x, int y); // Helper to count surrounding mines
 
 //------------------------------------------------------------------------------------
 // Program main entry point
@@ -57,7 +62,6 @@ int main(void)
     // Initialization (Note windowTitle is unused on Android)
     //---------------------------------------------------------
     InitWindow(screenWidth, screenHeight, "minesweeper");
-
 
     InitGame();
 
@@ -86,13 +90,19 @@ int main(void)
     return 0;
 }
 
+bool IsWinner()
+{
+    if (numOpened == (ROWS * COLS) - bombCount) return true;
+    else return false;
+}
+
 void dfs(int x, int y) 
 {
     if(bombCount == MAX_BOMBS) return;
     if(x < 0 || x > ROWS-1 || y < 0 || y > COLS-1) return;
-    if(board[x][y] == BOMB) return;
+    if(bombs[x][y] == BOMB) return;
 
-    board[x][y] = BOMB;
+    bombs[x][y] = BOMB;
     bombCount++;
 
     int dx = rand() % (1 + 1 - (-1)) + (-1);
@@ -101,20 +111,42 @@ void dfs(int x, int y)
     dfs(x+dx,y+dy);
 }
 
+void Count(int x, int y)
+{
+    if(x < 0 || x == ROWS || y < 0 || y == COLS) return; //out of range
+    if(bombs[x][y] == BOMB) return;
+
+    if(bombs[x+1][y] == BOMB) counts[x][y]++;
+    if(bombs[x-1][y] == BOMB) counts[x][y]++;
+    if(bombs[x][y+1] == BOMB) counts[x][y]++;
+    if(bombs[x][y-1] == BOMB) counts[x][y]++;
+
+    if(bombs[x+1][y+1] == BOMB) counts[x][y]++;
+    if(bombs[x-1][y-1] == BOMB) counts[x][y]++;
+    if(bombs[x-1][y+1] == BOMB) counts[x][y]++;
+    if(bombs[x+1][y-1] == BOMB) counts[x][y]++;
+}
+
 void InitGame(void)
 {
     srand(time(NULL));
     framesCounter = 0;
     gameOver = false;
     pause = false;
+    win = false;
+    bombCount = 0;
+    numOpened = 0;
 
     //init board values
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             board[i][j] = UNOPENED;
+            bombs[i][j] = UNOPENED;
+            counts[i][j] = UNOPENED;
         }
     }
 
+    //populate bomb map
     while(bombCount != MAX_BOMBS) 
     {
         // randomize bomb placement (Randomized DFS)
@@ -123,27 +155,36 @@ void InitGame(void)
 
         dfs(xRoot,yRoot);
     }
+
+    //populate counts
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            Count(i,j);
+        }
+    }
 }
 
-//This will return the x index on the board of mouse
 int GetMouseClickX() {
     return (int) floor(GetMousePosition().x / SQUARE_SIZE);
 }
 
-//This will return the y index on the board of mouse
 int GetMouseClickY() {
     return (int) floor(GetMousePosition().y / SQUARE_SIZE);
 }
 
-void PrintBoard() 
+void Open(int x, int y)
 {
-    for (int i = 0; i < screenWidth / SQUARE_SIZE; i++)
-    {
-        for (int j = 0; j < screenHeight / SQUARE_SIZE; j++)
-        {
-            printf("%d ", board[j][i]);
-        }
-        printf("%s", "\n");
+    if(x < 0 || x == ROWS || y < 0 || y == COLS) return; //out of range
+    if (bombs[x][y] == BOMB || board[x][y] == OPENED) return;
+
+    board[x][y] = OPENED;
+    numOpened++;
+
+    if (counts[x][y] == 0) {
+        Open(x-1,y);
+        Open(x+1,y);
+        Open(x,y-1);
+        Open(x,y+1);
     }
 }
 
@@ -151,6 +192,10 @@ void UpdateGame(void)
 {
     if (!gameOver)
     {
+        if (IsWinner()) {
+            gameOver = true;
+            win = true;
+        } 
         if (IsKeyPressed('P')) {
             printf("Pause toggle\n");
             pause = !pause;
@@ -162,10 +207,29 @@ void UpdateGame(void)
             printf("MouseX: %d ", x); 
             printf("MouseY: %d\n", y);
             
-            //update board with click event
-            board[x][y] = OPENED;
-            PrintBoard();
+            if (bombs[x][y] == BOMB) 
+            {
+                gameOver = true;
+            }
+
+            // Trigger opening of other cells
+            Open(x,y);
         }
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+            int x = GetMouseClickX();
+            int y = GetMouseClickY();
+            printf("MouseX: %d ", x); 
+            printf("MouseY: %d\n", y);
+            
+            //update board with click event
+            if (board[x][y] == UNOPENED) board[x][y] = FLAG;
+            else if (board[x][y] == FLAG) board[x][y] = UNOPENED;
+        }
+    }
+    else
+    {
+        if (IsKeyPressed(KEY_ENTER)) InitGame();
     }
 }
 
@@ -178,12 +242,12 @@ void DrawGame(void)
         if (!gameOver)
         {
             // Draw grid lines
-            for (int i = 0; i < screenWidth/SQUARE_SIZE + 1; i++)
+            for (int i = 0; i < ROWS; i++)
             {
                 DrawLineV((Vector2){SQUARE_SIZE*i + offset.x/2, offset.y/2}, (Vector2){SQUARE_SIZE*i + offset.x/2, screenHeight - offset.y/2}, LIGHTGRAY);
             }
 
-            for (int i = 0; i < screenHeight/SQUARE_SIZE + 1; i++)
+            for (int i = 0; i < COLS; i++)
             {
                 DrawLineV((Vector2){offset.x/2, SQUARE_SIZE*i + offset.y/2}, (Vector2){screenWidth - offset.x/2, SQUARE_SIZE*i + offset.y/2}, LIGHTGRAY);
             }
@@ -193,18 +257,32 @@ void DrawGame(void)
             {
                 for (int j = 0; j < screenHeight/SQUARE_SIZE + 1; j++) 
                 {
-                    if (board[i][j] == OPENED) DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, GREEN);
-                    else if (board[i][j] == BOMB) DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, RED);
-
+                    if (board[i][j] == OPENED)
+                    {
+                        char c = counts[i][j] + '0';
+                        if (counts[i][j] == 0) c = '\0';
+                        DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, DARKGRAY);
+                        DrawText(&c, (i * SQUARE_SIZE) + (SQUARE_SIZE / 2), (j * SQUARE_SIZE) + (SQUARE_SIZE / 2), 10, WHITE);
+                    }                    
+                    else if (board[i][j] == FLAG) DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, YELLOW);
                 }
             }
 
             if (pause) DrawText("GAME PAUSED", screenWidth/2 - MeasureText("GAME PAUSED", 40)/2, screenHeight/2 - 40, 40, GRAY);
         }
-        else DrawText("PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, GRAY);
+        else 
+        {
+            if (win)
+            {
+                DrawText("WINNER! PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("WINNER! PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, GRAY);
+            }
+            else
+            {
+                DrawText("GAME OVER! PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("GAME OVER! PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, GRAY);
+            }
+        }
 
     EndDrawing();
-
 }
 
 void UnloadGame(void)
