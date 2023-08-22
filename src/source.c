@@ -233,6 +233,75 @@ void UpdateGame(void)
     }
 }
 
+void DrawBoard(void)
+{
+    // Draw board
+    for (int i = 0; i < ROWS; i++)
+    {
+        for (int j = 0; j < COLS; j++)
+        {
+            if (board[i][j] == OPENED)
+            {
+                char c = counts[i][j] + '0';
+                if (counts[i][j] == 0)
+                    c = '\0';
+                DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, DARKGRAY);
+                DrawText(&c, (i * SQUARE_SIZE) + (SQUARE_SIZE / 2), (j * SQUARE_SIZE) + (SQUARE_SIZE / 2), 10, WHITE);
+            }
+            else if (board[i][j] == FLAG)
+                DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, YELLOW);
+        }
+    }
+
+    // Draw grid lines
+    for (int i = 0; i < ROWS; i++)
+    {
+        DrawLineV((Vector2){SQUARE_SIZE * i + offset.x / 2, offset.y / 2}, (Vector2){SQUARE_SIZE * i + offset.x / 2, screenHeight - offset.y / 2}, LIGHTGRAY);
+    }
+
+    for (int i = 0; i < COLS; i++)
+    {
+        DrawLineV((Vector2){offset.x / 2, SQUARE_SIZE * i + offset.y / 2}, (Vector2){screenWidth - offset.x / 2, SQUARE_SIZE * i + offset.y / 2}, LIGHTGRAY);
+    }
+}
+
+void DrawBoardWithBombs(void)
+{
+    // Draw board
+    for (int i = 0; i < ROWS; i++)
+    {
+        for (int j = 0; j < COLS; j++)
+        {
+            if (board[i][j] == OPENED)
+            {
+                char c = counts[i][j] + '0';
+                if (counts[i][j] == 0)
+                    c = '\0';
+                DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, DARKGRAY);
+                DrawText(&c, (i * SQUARE_SIZE) + (SQUARE_SIZE / 2), (j * SQUARE_SIZE) + (SQUARE_SIZE / 2), 10, WHITE);
+            }
+            else if (board[i][j] == FLAG)
+                DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, YELLOW);
+
+            if (bombs[i][j] == BOMB)
+            {
+                DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, RED);
+            }
+        }
+    }
+
+    // Draw grid lines
+    for (int i = 0; i < ROWS; i++)
+    {
+        DrawLineV((Vector2){SQUARE_SIZE * i + offset.x / 2, offset.y / 2}, (Vector2){SQUARE_SIZE * i + offset.x / 2, screenHeight - offset.y / 2}, LIGHTGRAY);
+    }
+
+    for (int i = 0; i < COLS; i++)
+    {
+        DrawLineV((Vector2){offset.x / 2, SQUARE_SIZE * i + offset.y / 2}, (Vector2){screenWidth - offset.x / 2, SQUARE_SIZE * i + offset.y / 2}, LIGHTGRAY);
+    }
+}
+
 void DrawGame(void)
 {
         BeginDrawing();
@@ -241,44 +310,21 @@ void DrawGame(void)
 
         if (!gameOver)
         {
-            // Draw grid lines
-            for (int i = 0; i < ROWS; i++)
-            {
-                DrawLineV((Vector2){SQUARE_SIZE*i + offset.x/2, offset.y/2}, (Vector2){SQUARE_SIZE*i + offset.x/2, screenHeight - offset.y/2}, LIGHTGRAY);
-            }
+            DrawBoard();
 
-            for (int i = 0; i < COLS; i++)
-            {
-                DrawLineV((Vector2){offset.x/2, SQUARE_SIZE*i + offset.y/2}, (Vector2){screenWidth - offset.x/2, SQUARE_SIZE*i + offset.y/2}, LIGHTGRAY);
-            }
-            
-            //Draw board
-            for (int i = 0; i < screenWidth/SQUARE_SIZE + 1; i++)
-            {
-                for (int j = 0; j < screenHeight/SQUARE_SIZE + 1; j++) 
-                {
-                    if (board[i][j] == OPENED)
-                    {
-                        char c = counts[i][j] + '0';
-                        if (counts[i][j] == 0) c = '\0';
-                        DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, DARKGRAY);
-                        DrawText(&c, (i * SQUARE_SIZE) + (SQUARE_SIZE / 2), (j * SQUARE_SIZE) + (SQUARE_SIZE / 2), 10, WHITE);
-                    }                    
-                    else if (board[i][j] == FLAG) DrawRectangle(i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE, YELLOW);
-                }
-            }
-
-            if (pause) DrawText("GAME PAUSED", screenWidth/2 - MeasureText("GAME PAUSED", 40)/2, screenHeight/2 - 40, 40, GRAY);
+            if (pause) DrawText("GAME PAUSED", screenWidth/2 - MeasureText("GAME PAUSED", 40)/2, screenHeight/2 - 40, 40, DARKGREEN);
         }
         else 
         {
+            DrawBoardWithBombs();
+
             if (win)
             {
-                DrawText("WINNER! PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("WINNER! PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, GRAY);
+                DrawText("WINNER! PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("WINNER! PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, DARKGREEN);
             }
             else
             {
-                DrawText("GAME OVER! PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("GAME OVER! PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, GRAY);
+                DrawText("GAME OVER! PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("GAME OVER! PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 - 50, 20, DARKGREEN);
             }
         }
 
